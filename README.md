@@ -12,7 +12,7 @@ Demo giao diện quản lý cây xăng để gửi khách trải nghiệm trên 
 
 ## Đưa lên GitHub Pages
 
-Repo này chỉ chứa `index.html`, `styles.css`, `app.js` và workflow triển khai. Khi đẩy lên nhánh `main`, GitHub Actions sẽ xuất nội dung repo thành GitHub Pages.
+Repo này chỉ chứa các tệp tĩnh của demo. GitHub Pages phát hành trực tiếp nội dung ở thư mục gốc của nhánh `main`; không có backend hay dữ liệu vận hành trong repo.
 
 ## Chạy thử trên máy
 
