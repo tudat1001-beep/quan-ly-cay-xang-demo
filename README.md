@@ -9,6 +9,8 @@ Demo giao diện quản lý cây xăng để gửi khách trải nghiệm trên 
 - Mỗi thiết bị/trình duyệt có dữ liệu riêng; demo không đồng bộ giữa điện thoại và máy tính.
 - Nút **Đặt lại dữ liệu mẫu** xóa các giao dịch demo trong trình duyệt đó và nạp lại bộ dữ liệu ban đầu.
 - Không nhập dữ liệu thật, thông tin khách hàng thật hoặc thông tin đăng nhập. Đây là bản demo tĩnh, không có tài khoản, máy chủ hay cơ chế sao lưu.
+- **Nạp vào trụ** chuyển số lít từ kho chung sang tồn của trụ. Lượt xe công ty và bán lẻ chốt cuối ngày được trừ khỏi tồn trụ; tổng tồn không bị trừ hai lần.
+- Màn hình bán xe và nhập nhiên liệu giữ trụ/nhà cung cấp/nhiên liệu gần nhất để ghi nhiều phiếu liên tiếp.
 
 ## Đưa lên GitHub Pages
 

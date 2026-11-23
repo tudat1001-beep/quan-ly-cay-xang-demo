@@ -11,12 +11,11 @@
   const money = (value) => new Intl.NumberFormat('vi-VN').format(Number(value || 0)) + ' ₫';
   const liters = (milli) => new Intl.NumberFormat('vi-VN', { minimumFractionDigits: 0, maximumFractionDigits: 3 }).format(Number(milli || 0) / 1000) + ' L';
   const meterValue = (milli) => new Intl.NumberFormat('vi-VN', { minimumFractionDigits: 0, maximumFractionDigits: 3 }).format(Number(milli || 0) / 1000);
-  const amountField = (value) => Number(String(value || '').trim().replace(/\./g, '').replace(',', '.'));
 
   function seedData() {
     const date = today();
     const data = {
-      schema: 1,
+      schema: 2,
       fuels: [
         { id: 'f95', name: 'Xăng RON 95-III', active: true },
         { id: 'e5', name: 'Xăng E5 RON 92', active: true },
@@ -57,22 +56,45 @@
     add('opening-debt', date, { partyKind: 'supplier', partyId: 's-namviet', debtDelta: 1500000, note: 'Công nợ đầu kỳ mẫu' });
     add('purchase', date, { supplierId: 's-petrolimex', fuelId: 'f95', liters: 1500000, price: 20500, amount: 30750000, stockDelta: 1500000, debtDelta: 30750000, note: 'PN-1001 · dữ liệu mẫu' });
     add('purchase', date, { supplierId: 's-namviet', fuelId: 'diesel', liters: 900000, price: 18000, amount: 16200000, stockDelta: 900000, debtDelta: 16200000, note: 'PN-205 · dữ liệu mẫu' });
-    add('sale', date, { companyId: 'c-anphat', vehicleId: 'v-1', plate: '51A-123.45', pumpId: 't1', fuelId: 'f95', liters: 90000, price: 20500, amount: 1845000, stockDelta: -90000, debtDelta: 1845000, note: 'Xe tuyến nội thành' });
-    add('sale', date, { companyId: 'c-anphat', vehicleId: 'v-2', plate: '51D-678.90', pumpId: 't2', fuelId: 'f95', liters: 45000, price: 20500, amount: 922500, stockDelta: -45000, debtDelta: 922500, note: 'Xe giao hàng' });
-    add('sale', date, { companyId: 'c-minhlong', vehicleId: 'v-3', plate: '60C-246.80', pumpId: 'd1', fuelId: 'diesel', liters: 25000, price: 20500, amount: 512500, stockDelta: -25000, debtDelta: 512500, note: 'Xe tải' });
+    add('pump-fill', date, { pumpId: 't1', fuelId: 'f95', liters: 300000, stockDelta: -300000, pumpStockDelta: 300000, note: 'Nạp trụ T1 · dữ liệu mẫu' });
+    add('pump-fill', date, { pumpId: 't2', fuelId: 'f95', liters: 200000, stockDelta: -200000, pumpStockDelta: 200000, note: 'Nạp trụ T2 · dữ liệu mẫu' });
+    add('pump-fill', date, { pumpId: 'd1', fuelId: 'diesel', liters: 100000, stockDelta: -100000, pumpStockDelta: 100000, note: 'Nạp trụ D1 · dữ liệu mẫu' });
+    add('sale', date, { companyId: 'c-anphat', vehicleId: 'v-1', plate: '51A-123.45', pumpId: 't1', fuelId: 'f95', liters: 90000, price: 20500, amount: 1845000, stockDelta: 0, pumpStockDelta: -90000, debtDelta: 1845000, note: 'Xe tuyến nội thành' });
+    add('sale', date, { companyId: 'c-anphat', vehicleId: 'v-2', plate: '51D-678.90', pumpId: 't2', fuelId: 'f95', liters: 45000, price: 20500, amount: 922500, stockDelta: 0, pumpStockDelta: -45000, debtDelta: 922500, note: 'Xe giao hàng' });
+    add('sale', date, { companyId: 'c-minhlong', vehicleId: 'v-3', plate: '60C-246.80', pumpId: 'd1', fuelId: 'diesel', liters: 25000, price: 20500, amount: 512500, stockDelta: 0, pumpStockDelta: -25000, debtDelta: 512500, note: 'Xe tải' });
     add('receipt', date, { partyKind: 'company', partyId: 'c-anphat', amount: 1200000, debtDelta: -1200000, note: 'Chuyển khoản · mẫu' });
     add('payment', date, { partyKind: 'supplier', partyId: 's-petrolimex', amount: 8000000, debtDelta: -8000000, note: 'Ủy nhiệm chi · mẫu' });
     return data;
   }
 
   function loadData() {
+    let value;
     try {
-      const value = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
-      if (value?.schema === 1 && Array.isArray(value.transactions)) return value;
+      value = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
     } catch {}
-    const value = seedData();
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(value));
-    return value;
+    if (value?.schema === 2 && Array.isArray(value.transactions)) return value;
+    if (value?.schema === 1 && Array.isArray(value.transactions)) {
+      value.closes ||= [];
+      const movements = new Map();
+      for (const tx of value.transactions) {
+        if (!tx.pumpId || !['sale', 'retail', 'reversal'].includes(tx.kind) || !Number(tx.stockDelta)) continue;
+        const delta = Number(tx.stockDelta);
+        tx.pumpStockDelta = delta;
+        tx.stockDelta = 0;
+        movements.set(tx.pumpId, (movements.get(tx.pumpId) || 0) + delta);
+      }
+      for (const [pumpId, delta] of movements) {
+        if (!delta) continue;
+        const pumpItem = value.pumps?.find((item) => item.id === pumpId);
+        value.transactions.push({ id: id(), kind: 'legacy-pump-balance', date: today(), createdAt: new Date().toISOString(), pumpId, fuelId: pumpItem?.fuelId, liters: Math.abs(delta), stockDelta: delta, pumpStockDelta: -delta, note: 'Cân đối lịch sử khi bật theo dõi tồn theo trụ' });
+      }
+      value.schema = 2;
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(value)); } catch {}
+      return value;
+    }
+    const seeded = seedData();
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(seeded));
+    return seeded;
   }
 
   let data = loadData();
@@ -103,6 +125,12 @@
   }
   function stock(fuelId) {
     return data.transactions.filter((tx) => tx.fuelId === fuelId).reduce((sum, tx) => sum + Number(tx.stockDelta || 0), 0);
+  }
+  function pumpStock(pumpId) {
+    return data.transactions.filter((tx) => tx.pumpId === pumpId).reduce((sum, tx) => sum + Number(tx.pumpStockDelta || 0), 0);
+  }
+  function totalStock(fuelId) {
+    return stock(fuelId) + data.pumps.filter((item) => item.fuelId === fuelId).reduce((sum, item) => sum + pumpStock(item.id), 0);
   }
   function debt(partyKind, partyId) {
     return data.transactions.filter((tx) => tx.partyKind === partyKind && tx.partyId === partyId).reduce((sum, tx) => sum + Number(tx.debtDelta || 0), 0);
@@ -142,8 +170,8 @@
   function activePumpLabel(item) { return `${item.code} · ${fuel(item.fuelId)?.name || 'Chưa gắn nhiên liệu'}`; }
   function recentTransactions(limit = 7) {
     const rows = data.transactions.slice(0, limit).map((tx) => {
-      const name = tx.kind === 'sale' ? `${tx.plate} · ${pump(tx.pumpId)?.code || ''}` : tx.kind === 'purchase' ? supplier(tx.supplierId)?.name : tx.partyKind === 'company' ? company(tx.partyId)?.name : supplier(tx.partyId)?.name;
-      const kindLabel = { sale: 'Xe công ty', purchase: 'Nhập nhiên liệu', receipt: 'Thu công nợ', payment: 'Trả nhà cung cấp', retail: 'Bán lẻ chốt trụ', reversal: 'Đảo phiếu', 'opening-stock': 'Tồn đầu kỳ', 'opening-debt': 'Nợ đầu kỳ' }[tx.kind] || 'Điều chỉnh';
+      const name = tx.kind === 'sale' ? `${tx.plate} · ${pump(tx.pumpId)?.code || ''}` : tx.kind === 'pump-fill' || tx.kind === 'legacy-pump-balance' ? `Trụ ${pump(tx.pumpId)?.code || ''}` : tx.kind === 'purchase' ? supplier(tx.supplierId)?.name : tx.partyKind === 'company' ? company(tx.partyId)?.name : supplier(tx.partyId)?.name;
+      const kindLabel = { sale: 'Xe công ty', purchase: 'Nhập nhiên liệu', 'pump-fill': 'Nạp vào trụ', 'legacy-pump-balance': 'Cân đối trụ cũ', receipt: 'Thu công nợ', payment: 'Trả nhà cung cấp', retail: 'Bán lẻ chốt trụ', reversal: 'Đảo phiếu', 'opening-stock': 'Tồn đầu kỳ', 'opening-debt': 'Nợ đầu kỳ' }[tx.kind] || 'Điều chỉnh';
       const units = tx.liters ? liters(tx.liters) : tx.stockDelta ? liters(Math.abs(tx.stockDelta)) : '';
       return `<tr><td><span class="badge ${tx.kind === 'sale' ? 'blue' : tx.kind === 'retail' ? 'amber' : ''}">${kindLabel}</span></td><td>${escapeHtml(tx.note || name || '—')}</td><td>${escapeHtml(tx.date)}</td><td>${escapeHtml(units)}</td><td class="amount">${tx.amount ? money(tx.amount) : '—'}</td></tr>`;
     }).join('');
@@ -156,9 +184,9 @@
       const sold = txPumpSales(item.id, today());
       const endExample = expected.opening + sold + 40000;
       if (close) {
-        return `<div class="pump-row"><div class="pump-symbol">⛽</div><div><h3>Trụ ${escapeHtml(item.code)}</h3><p>${escapeHtml(fuel(item.fuelId)?.name || '')}</p></div><div class="pump-stats">Xe công ty <b>${liters(close.companyLiters)}</b><br>Bán lẻ <b>${liters(close.retailLiters)}</b></div><span class="pump-pill closed">Đã chốt</span></div>`;
+        return `<div class="pump-row"><div class="pump-symbol">⛽</div><div><h3>Trụ ${escapeHtml(item.code)}</h3><p>${escapeHtml(fuel(item.fuelId)?.name || '')}</p></div><div class="pump-stats">Trong trụ <b>${liters(pumpStock(item.id))}</b><br>Bán lẻ <b>${liters(close.retailLiters)}</b></div><span class="pump-pill closed">Đã chốt</span></div>`;
       }
-      return `<div class="pump-row"><div class="pump-symbol">⛽</div><div><h3>Trụ ${escapeHtml(item.code)}</h3><p>${escapeHtml(fuel(item.fuelId)?.name || '')}</p></div><div class="pump-stats">Đầu ngày <b>${liters(expected.opening)}</b><br>Xe công ty <b>${liters(sold)}</b></div>${compact ? `<span class="pump-pill">Chờ chốt</span>` : `<form class="meter-mini" data-form="close-pump"><input type="hidden" name="pumpId" value="${escapeHtml(item.id)}"><input name="closing" inputmode="decimal" placeholder="${meterValue(endExample)}" aria-label="Chỉ số cuối trụ ${escapeHtml(item.code)}" required><button class="button primary" type="submit">Chốt</button></form>`}</div>`;
+      return `<div class="pump-row"><div class="pump-symbol">⛽</div><div><h3>Trụ ${escapeHtml(item.code)}</h3><p>${escapeHtml(fuel(item.fuelId)?.name || '')}</p></div><div class="pump-stats">Trong trụ <b>${liters(pumpStock(item.id))}</b><br>Xe công ty <b>${liters(sold)}</b></div>${compact ? `<span class="pump-pill">Chờ chốt</span>` : `<form class="meter-mini" data-form="close-pump"><input type="hidden" name="pumpId" value="${escapeHtml(item.id)}"><input name="closing" inputmode="decimal" placeholder="${meterValue(endExample)}" aria-label="Chỉ số cuối trụ ${escapeHtml(item.code)}" required><button class="button primary" type="submit">Chốt</button></form>`}</div>`;
     }).join('') || '<div class="empty">Chưa có trụ trong danh mục. Thêm trụ ở mục Danh mục.</div>';
   }
   function renderHome() {
@@ -166,43 +194,50 @@
     const receivable = data.companies.reduce((sum, item) => sum + debt('company', item.id), 0);
     const payable = data.suppliers.reduce((sum, item) => sum + debt('supplier', item.id), 0);
     const todaySales = data.transactions.filter((tx) => tx.kind === 'sale' && tx.date === today()).reduce((sum, tx) => sum + tx.amount, 0);
-    const inventoryRows = fuelItems.map((item) => `<tr><td><strong>${escapeHtml(item.name)}</strong></td><td>${liters(stock(item.id))}</td><td>${money(currentPrice(item.id))} / L</td><td><span class="badge">Đang bán</span></td></tr>`).join('');
-    return `${top('Tổng quan', 'Theo dõi hoạt động cửa hàng trong ngày.', '<button class="button primary" data-go="sale">＋ Ghi lượt xe</button>')}
+    const commonTotal = fuelItems.reduce((sum, item) => sum + stock(item.id), 0);
+    const pumpsTotal = fuelItems.reduce((sum, item) => sum + data.pumps.filter((pumpItem) => pumpItem.fuelId === item.id).reduce((pumpSum, pumpItem) => pumpSum + pumpStock(pumpItem.id), 0), 0);
+    const inventoryRows = fuelItems.map((item) => {
+      const inPumps = data.pumps.filter((pumpItem) => pumpItem.fuelId === item.id).reduce((sum, pumpItem) => sum + pumpStock(pumpItem.id), 0);
+      return `<tr><td><strong>${escapeHtml(item.name)}</strong></td><td>${liters(stock(item.id))}</td><td>${liters(inPumps)}</td><td><strong>${liters(totalStock(item.id))}</strong></td><td>${money(currentPrice(item.id))} / L</td></tr>`;
+    }).join('');
+    return `${top('Tổng quan', 'Theo dõi hoạt động cửa hàng trong ngày.', '<button class="button secondary" data-go="pump-fill">＋ Nạp vào trụ</button><button class="button primary" data-go="sale">＋ Ghi lượt xe</button>')}
       <div class="local-banner"><strong>Dữ liệu riêng của bạn.</strong> Demo này lưu trong bộ nhớ trình duyệt hiện tại. Khách thử trên thiết bị khác sẽ có bộ dữ liệu riêng.</div>
       <section class="metrics">
-        <article class="metric"><div class="metric-top">Tồn nhiên liệu <span class="metric-icon">◈</span></div><strong>${liters(fuelItems.reduce((sum, item) => sum + stock(item.id), 0))}</strong><small>Tổng tồn các loại đang bán</small></article>
+        <article class="metric"><div class="metric-top">Tồn nhiên liệu <span class="metric-icon">◈</span></div><strong>${liters(commonTotal + pumpsTotal)}</strong><small>Kho chung ${liters(commonTotal)} · Trong trụ ${liters(pumpsTotal)}</small></article>
         <article class="metric"><div class="metric-top">Khách hàng còn nợ <span class="metric-icon">↗</span></div><strong>${money(receivable)}</strong><small>${data.companies.filter((item) => debt('company', item.id) > 0).length} công ty có số dư</small></article>
         <article class="metric"><div class="metric-top">Phải trả nhà cung cấp <span class="metric-icon">↙</span></div><strong>${money(payable)}</strong><small>${data.suppliers.length} nhà cung cấp mẫu</small></article>
         <article class="metric"><div class="metric-top">Bán xe hôm nay <span class="metric-icon">▤</span></div><strong>${money(todaySales)}</strong><small>Chưa gồm bán lẻ chờ chốt trụ</small></article>
       </section>
       <div class="grid-two"><section class="card">${section('Chốt trụ cuối ngày', 'Nhập chỉ số đồng hồ cuối. Bán lẻ được tính tự động.', '<button class="text-link" data-go="closing">Mở trang chốt →</button>')}<div class="pump-list">${pumpCards(true)}</div></section>
-      <section class="card">${section('Tổng tồn theo nhiên liệu', 'Tồn sau các phiếu đã ghi.')}
-        <div class="table-wrap"><table><thead><tr><th>Nhiên liệu</th><th>Tồn sổ</th><th>Giá hiện tại</th><th></th></tr></thead><tbody>${inventoryRows || '<tr><td class="empty" colspan="4">Chưa có nhiên liệu.</td></tr>'}</tbody></table></div></section></div>
+      <section class="card">${section('Tồn theo nhiên liệu', 'Kho chung và phần nhiên liệu đang ở từng trụ.')}
+        <div class="table-wrap"><table><thead><tr><th>Nhiên liệu</th><th>Kho chung</th><th>Trong trụ</th><th>Tổng tồn</th><th>Giá hiện tại</th></tr></thead><tbody>${inventoryRows || '<tr><td class="empty" colspan="5">Chưa có nhiên liệu.</td></tr>'}</tbody></table></div></section></div>
       <section class="card">${section('Giao dịch gần đây', 'Phiếu và thao tác mới nhất.', '<button class="text-link" data-go="reports">Mở sổ →</button>')}<div class="table-wrap"><table><thead><tr><th>Loại</th><th>Nội dung</th><th>Ngày</th><th>Số lượng</th><th>Thành tiền</th></tr></thead><tbody>${recentTransactions()}</tbody></table></div></section>`;
   }
   function renderSale() {
     const pumps = data.pumps.filter((item) => item.active !== false);
-    const pumpOptions = selectOptions(pumps, '', (item) => activePumpLabel(item));
+    const selectedPumpId = pumps.some((item) => item.id === data.lastSalePumpId) ? data.lastSalePumpId : pumps[0]?.id || '';
+    const pumpOptions = selectOptions(pumps, selectedPumpId, (item) => activePumpLabel(item));
     const vehicles = data.vehicles.filter((item) => item.active !== false);
     return `${top('Bán cho xe công ty', 'Chọn trụ và biển số. Nhiên liệu cùng giá bán lấy theo trụ.')}
       <div class="grid-two"><section class="card">${section('Thông tin lượt đổ')}
         <form data-form="sale">
           ${selectField('Trụ xăng', 'pumpId', pumpOptions, 'data-sale-pump')}
           <div class="form-grid"><div class="field"><label for="plate">Biển số xe</label><input id="plate" name="plate" list="vehicle-list" placeholder="Ví dụ 51A-123.45" autocomplete="off" required><datalist id="vehicle-list">${vehicles.map((item) => `<option value="${escapeHtml(item.plate)}">${escapeHtml(company(item.companyId)?.name || '')}</option>`).join('')}</datalist><p class="hint" id="company-hint">Chọn xe để hiện công ty.</p></div>${field('Ngày đổ', 'date', 'date', today())}</div>
+          <p class="hint" id="pump-stock-hint"></p>
           <div class="form-grid"><div class="field"><label for="liters">Số lít</label><input id="liters" name="liters" inputmode="decimal" placeholder="Ví dụ 45,5" required></div><div class="field"><label for="sale-price">Đơn giá (đồng/lít)</label><input id="sale-price" name="price" inputmode="numeric" readonly placeholder="Chọn trụ để lấy giá"></div></div>
           <div class="summary-box sale-preview"><span>Thành tiền tạm tính</span><strong id="sale-total">—</strong></div>
           <div class="field"><label for="sale-note">Ghi chú</label><input id="sale-note" name="note" placeholder="Không bắt buộc"></div>
-          <div class="form-actions"><button class="button primary" type="submit">Lưu lượt đổ</button><span class="hint">Phiếu tăng công nợ công ty và trừ kho.</span></div>
+          <div class="form-actions"><button class="button primary" type="submit">Lưu lượt đổ</button><span class="hint">Chọn đúng trụ đã nạp. Lưu xong có thể ghi lượt kế tiếp ngay.</span></div>
         </form></section>
         <section class="card">${section('Xe công ty mẫu', 'Gõ biển số có hoặc không có dấu phân cách.')}
           <div class="catalog-list">${vehicles.map((item) => `<div class="catalog-item"><div><strong>${escapeHtml(item.plate)}</strong><div class="small-muted">${escapeHtml(company(item.companyId)?.name || '')}</div></div><button class="button secondary" data-use-plate="${escapeHtml(item.plate)}">Chọn xe</button></div>`).join('')}</div>
-          <div class="callout" style="margin-top:14px">Bán khách lẻ không nhập ở đây. Cuối ngày chốt chỉ số từng trụ để hệ thống tự tính lít bán lẻ.</div>
+          <div class="callout" style="margin-top:14px">Bán khách lẻ không nhập ở đây. Cuối ngày chốt chỉ số từng trụ để hệ thống tự tính lít bán lẻ. Nếu tồn trong trụ không đủ, nạp thêm từ kho chung trước.</div>
         </section></div>`;
   }
   function renderClosing() {
     const date = today();
     return `${top('Chốt trụ cuối ngày', 'Nhập chỉ số lít cộng dồn trên đồng hồ của từng trụ.')}
-      <div class="notice">Bán lẻ = chỉ số cuối − chỉ số đầu − lít xe công ty đã ghi trên cùng trụ. Chốt đủ từng ngày, kể cả ngày trụ không bán.</div>
+      <div class="notice">Bán lẻ = chỉ số cuối − chỉ số đầu − lít xe công ty đã ghi trên cùng trụ. Số lít bán ra sẽ trừ khỏi tồn trong trụ. Chốt đủ từng ngày, kể cả ngày trụ không bán.</div>
       <section class="card">${section('Các trụ đang hoạt động', 'Lít xe công ty được trừ tự động khi chốt.')}
         <div class="pump-list">${pumpCards(false)}</div>
       </section>
@@ -210,14 +245,37 @@
         <div class="table-wrap"><table><thead><tr><th>Ngày</th><th>Trụ</th><th>Đầu</th><th>Cuối</th><th>Xe công ty</th><th>Bán lẻ</th><th></th></tr></thead><tbody>${data.closes.filter((item) => item.active).slice().sort((a, b) => b.date.localeCompare(a.date)).slice(0, 6).map((item) => `<tr><td>${escapeHtml(item.date)}</td><td>${escapeHtml(pump(item.pumpId)?.code || '')}</td><td>${liters(item.opening)}</td><td>${liters(item.closing)}</td><td>${liters(item.companyLiters)}</td><td><strong>${liters(item.retailLiters)}</strong></td><td>${item.date === today() ? `<button class="button secondary" data-reopen="${escapeHtml(item.id)}">Mở lại</button>` : '<span class="small-muted">Đã khóa</span>'}</td></tr>`).join('') || '<tr><td class="empty" colspan="7">Chưa có lần chốt.</td></tr>'}</tbody></table></div>
       </section>`;
   }
+  function renderPumpFill() {
+    const pumps = data.pumps.filter((item) => item.active !== false);
+    const selectedPumpId = pumps.some((item) => item.id === data.lastFillPumpId) ? data.lastFillPumpId : pumps[0]?.id || '';
+    const rows = pumps.map((item) => `<div class="catalog-item"><div><strong>Trụ ${escapeHtml(item.code)}</strong><div class="small-muted">${escapeHtml(fuel(item.fuelId)?.name || '')}</div></div><strong>${liters(pumpStock(item.id))}</strong></div>`).join('');
+    return `${top('Nạp nhiên liệu vào trụ', 'Chuyển lít từ kho chung sang tồn riêng của trụ.', '<button class="button secondary" data-go="reports">Xem tồn kho</button>')}
+      <div class="grid-two"><section class="card">${section('Ghi nhận nạp trụ')}
+        <form data-form="pump-fill">
+          ${selectField('Trụ nhận nhiên liệu', 'pumpId', selectOptions(pumps, selectedPumpId, (item) => activePumpLabel(item)), 'data-fill-pump')}
+          <div class="form-grid">${field('Ngày nạp', 'date', 'date', today())}${field('Số lít chuyển vào trụ', 'liters', 'text', '', 'inputmode="decimal" placeholder="Ví dụ 500"')}</div>
+          <div class="summary-box"><span>Kho chung còn lại</span><strong id="fill-common">—</strong></div>
+          <div class="summary-box"><span>Tồn trụ sau khi nạp</span><strong id="fill-pump">—</strong></div>
+          <div class="field"><label for="fill-note">Ghi chú</label><input id="fill-note" name="note" placeholder="Không bắt buộc"></div>
+          <div class="form-actions"><button class="button primary" type="submit">Lưu nạp trụ</button><span class="hint">Kho chung giảm, tồn trụ tăng. Đây là chuyển kho nội bộ, chưa phải lượt bán.</span></div>
+        </form></section>
+        <section class="card">${section('Tồn hiện tại trong các trụ', 'Xe công ty và bán lẻ cuối ngày sẽ trừ tại đây.')}
+          <div class="catalog-list">${rows || '<div class="empty">Chưa có trụ. Thêm trụ trong mục Danh mục.</div>'}</div>
+        </section></div>`;
+  }
   function renderPurchase() {
+    const suppliers = data.suppliers.filter((item) => item.active !== false);
+    const fuels = data.fuels.filter((item) => item.active !== false);
+    const supplierId = suppliers.some((item) => item.id === data.lastPurchaseSupplierId) ? data.lastPurchaseSupplierId : suppliers[0]?.id || '';
+    const fuelId = fuels.some((item) => item.id === data.lastPurchaseFuelId) ? data.lastPurchaseFuelId : fuels[0]?.id || '';
+    const lastPrice = data.lastPurchasePrices?.[fuelId] || '';
     return `${top('Nhập nhiên liệu', 'Phiếu nhập tăng tồn và công nợ nhà cung cấp.')}
       <section class="card">${section('Chi tiết phiếu nhập')}
-      <form data-form="purchase"><div class="form-grid">${selectField('Nhà cung cấp', 'supplierId', selectOptions(data.suppliers, '', (item) => item.name))}${field('Ngày nhập', 'date', 'date', today())}</div>
-      <div class="form-grid three">${selectField('Nhiên liệu', 'fuelId', selectOptions(data.fuels, '', (item) => item.name))}${field('Số lít', 'liters', 'text', '', 'inputmode="decimal" placeholder="1.000"')}${field('Giá mua / lít', 'price', 'text', '', 'inputmode="numeric" placeholder="Ví dụ 20.000"')}</div>
+      <form data-form="purchase"><div class="form-grid">${selectField('Nhà cung cấp', 'supplierId', selectOptions(suppliers, supplierId, (item) => item.name))}${field('Ngày nhập', 'date', 'date', today())}</div>
+      <div class="form-grid three">${selectField('Nhiên liệu', 'fuelId', selectOptions(fuels, fuelId, (item) => item.name), 'data-purchase-fuel')}${field('Số lít', 'liters', 'text', '', 'inputmode="decimal" placeholder="Ví dụ 1000"')}${field('Giá mua / lít', 'price', 'text', lastPrice, 'inputmode="numeric" placeholder="Ví dụ 20.000"')}</div>
       <div class="summary-box"><span>Thành tiền</span><strong id="purchase-total">—</strong></div>
       <div class="field"><label for="purchase-note">Số chứng từ / ghi chú</label><input id="purchase-note" name="note" placeholder="Không bắt buộc"></div>
-      <button class="button primary" type="submit">Lưu phiếu nhập</button></form></section>`;
+      <button class="button primary" type="submit">Lưu phiếu nhập</button><p class="hint">Sau khi lưu, nhà cung cấp và nhiên liệu được giữ lại để nhập phiếu tiếp theo.</p></form></section>`;
   }
   function renderPayments() {
     return `${top('Thu / chi công nợ', 'Ghi khoản khách trả hoặc khoản thanh toán nhà cung cấp.')}
@@ -234,17 +292,14 @@
   }
   function renderReports() {
     const fuelRows = data.fuels.map((item) => {
-      const opening = data.transactions.filter((tx) => tx.fuelId === item.id && tx.date < today()).reduce((sum, tx) => sum + (tx.stockDelta || 0), 0);
-      const received = data.transactions.filter((tx) => tx.fuelId === item.id && tx.kind === 'purchase' && tx.date === today()).reduce((sum, tx) => sum + tx.liters, 0);
-      const soldCompany = data.transactions.filter((tx) => tx.fuelId === item.id && tx.kind === 'sale' && tx.date === today()).reduce((sum, tx) => sum + tx.liters, 0);
-      const soldRetail = data.transactions.filter((tx) => tx.fuelId === item.id && tx.kind === 'retail' && tx.date === today()).reduce((sum, tx) => sum + Math.abs(tx.stockDelta), 0);
-      return `<tr><td>${escapeHtml(item.name)}</td><td>${liters(opening)}</td><td>${liters(received)}</td><td>${liters(soldCompany + soldRetail)}</td><td class="amount">${liters(stock(item.id))}</td></tr>`;
+      const inPumps = data.pumps.filter((pumpItem) => pumpItem.fuelId === item.id).reduce((sum, pumpItem) => sum + pumpStock(pumpItem.id), 0);
+      return `<tr><td>${escapeHtml(item.name)}</td><td>${liters(stock(item.id))}</td><td>${liters(inPumps)}</td><td class="amount">${liters(totalStock(item.id))}</td></tr>`;
     }).join('');
     const companyRows = data.companies.map((item) => `<tr><td>${escapeHtml(item.name)}</td><td>${money(debt('company', item.id))}</td><td>${item.vehicles || data.vehicles.filter((vehicle) => vehicle.companyId === item.id).length} xe</td></tr>`).join('');
     const supplierRows = data.suppliers.map((item) => `<tr><td>${escapeHtml(item.name)}</td><td>${money(debt('supplier', item.id))}</td></tr>`).join('');
-    return `${top('Sổ kho & công nợ', 'Số liệu được tổng hợp từ các giao dịch trên thiết bị này.', '<button class="button secondary" data-print>In trang</button>')}
-      <section class="card">${section('Nhập – xuất – tồn', 'Tồn cuối = tồn đầu + nhập − xe công ty − bán lẻ chốt trụ.')}
-        <div class="table-wrap"><table><thead><tr><th>Nhiên liệu</th><th>Đầu kỳ</th><th>Nhập hôm nay</th><th>Xuất hôm nay</th><th>Cuối kỳ</th></tr></thead><tbody>${fuelRows}</tbody></table></div></section>
+    return `${top('Sổ kho & công nợ', 'Số liệu được tổng hợp từ các giao dịch trên thiết bị này.', '<button class="button secondary" data-go="pump-fill">＋ Nạp vào trụ</button><button class="button secondary" data-print>In trang</button>')}
+      <section class="card">${section('Tồn theo vị trí', 'Nạp trụ chuyển kho chung sang tồn trụ; lượt bán trừ tại trụ.')}
+        <div class="table-wrap"><table><thead><tr><th>Nhiên liệu</th><th>Kho chung</th><th>Trong các trụ</th><th>Tổng tồn</th></tr></thead><tbody>${fuelRows}</tbody></table></div></section>
       <div class="grid-two"><section class="card">${section('Khách hàng phải thu')}<div class="table-wrap"><table><thead><tr><th>Công ty</th><th>Còn nợ</th><th>Xe</th></tr></thead><tbody>${companyRows}</tbody></table></div></section>
       <section class="card">${section('Nhà cung cấp phải trả')}<div class="table-wrap"><table><thead><tr><th>Nhà cung cấp</th><th>Còn phải trả</th></tr></thead><tbody>${supplierRows}</tbody></table></div></section></div>
       <section class="card">${section('Lịch sử giao dịch')}<div class="table-wrap"><table><thead><tr><th>Loại</th><th>Nội dung</th><th>Ngày</th><th>Số lượng</th><th>Thành tiền</th></tr></thead><tbody>${recentTransactions(100)}</tbody></table></div></section>`;
@@ -264,12 +319,13 @@
 
   function render() {
     const root = $('#app');
-    const views = { home: renderHome, sale: renderSale, closing: renderClosing, purchase: renderPurchase, payments: renderPayments, reports: renderReports, catalog: renderCatalog };
+    const views = { home: renderHome, sale: renderSale, 'pump-fill': renderPumpFill, closing: renderClosing, purchase: renderPurchase, payments: renderPayments, reports: renderReports, catalog: renderCatalog };
     root.innerHTML = (views[view] || renderHome)();
     $$('.nav-item').forEach((item) => item.classList.toggle('active', item.dataset.view === view));
     $('#today-label').textContent = new Intl.DateTimeFormat('vi-VN', { dateStyle: 'medium', timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date());
     updatePaymentParties();
     updateSalePreview();
+    updatePumpFillPreview();
     updatePurchasePreview();
   }
 
@@ -286,15 +342,17 @@
     const dateInput = $('[name="date"]', $('#app'));
     const priceInput = $('#sale-price');
     const hint = $('#company-hint');
+    const stockHint = $('#pump-stock-hint');
     if (!pumpSelect || !priceInput) return;
     const selectedPump = pump(pumpSelect.value);
     if (selectedPump) priceInput.value = currentPrice(selectedPump.fuelId, dateInput?.value || today()) || '';
     else priceInput.value = '';
+    if (stockHint) stockHint.textContent = selectedPump ? `Trụ ${selectedPump.code} còn ${liters(pumpStock(selectedPump.id))}. Nạp từ kho chung nếu số dư chưa đủ.` : '';
     const normalized = (plateInput?.value || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
     const vehicle = data.vehicles.find((item) => item.plate.toUpperCase().replace(/[^A-Z0-9]/g, '') === normalized);
     if (hint) hint.textContent = vehicle ? `Xe thuộc ${company(vehicle.companyId)?.name || 'chưa gắn công ty'}.` : 'Chọn xe mẫu hoặc nhập biển số đã đăng ký.';
     const litersInput = $('[name="liters"]', $('#app'));
-    const total = Number(litersInput?.value || 0) * Number(priceInput.value || 0);
+    const total = Number(String(litersInput?.value || 0).replace(',', '.')) * Number(priceInput.value || 0);
     const preview = $('#sale-total');
     if (preview) preview.textContent = Number.isFinite(total) && total > 0 ? money(Math.round(total)) : '—';
   }
@@ -303,9 +361,21 @@
     const priceInput = $('[data-form="purchase"] [name="price"]');
     const preview = $('#purchase-total');
     if (preview) {
-      const total = Number(litersInput?.value || 0) * Number(priceInput?.value || 0);
+      const total = Number(String(litersInput?.value || 0).replace(',', '.')) * Number(String(priceInput?.value || 0).replace(/[.,]/g, ''));
       preview.textContent = total > 0 ? money(Math.round(total)) : '—';
     }
+  }
+  function updatePumpFillPreview() {
+    const selected = $('[data-fill-pump]');
+    const common = $('#fill-common');
+    const inPump = $('#fill-pump');
+    if (!selected || !common || !inPump) return;
+    const selectedPump = pump(selected.value);
+    if (!selectedPump) { common.textContent = '—'; inPump.textContent = '—'; return; }
+    const quantity = Number(String($('[data-form="pump-fill"] [name="liters"]')?.value || '').trim().replace(',', '.'));
+    const qtyMilli = Number.isFinite(quantity) && quantity > 0 ? Math.round(quantity * 1000) : 0;
+    common.textContent = qtyMilli ? `${liters(stock(selectedPump.fuelId) - qtyMilli)} (hiện có ${liters(stock(selectedPump.fuelId))})` : liters(stock(selectedPump.fuelId));
+    inPump.textContent = qtyMilli ? `${liters(pumpStock(selectedPump.id) + qtyMilli)} (hiện có ${liters(pumpStock(selectedPump.id))})` : liters(pumpStock(selectedPump.id));
   }
   function parseLiters(value, label = 'Số lít') {
     const raw = String(value || '').trim().replace(',', '.');
@@ -341,14 +411,31 @@
     if (date < selectedPump.startDate) throw new Error('Ngày đổ trước ngày bắt đầu theo dõi trụ.');
     if (data.closes.some((item) => item.pumpId === selectedPump.id && item.date === date && item.active)) throw new Error('Trụ đã chốt ngày này. Hãy mở lại chốt gần nhất trước.');
     const qty = parseLiters(values.liters);
+    if (pumpStock(selectedPump.id) < qty) throw new Error(`Tồn trụ ${selectedPump.code} chỉ còn ${liters(pumpStock(selectedPump.id))}. Hãy nạp thêm từ kho chung.`);
     const unit = currentPrice(selectedPump.fuelId, date);
     if (!unit) throw new Error('Chưa có giá bán hiệu lực cho nhiên liệu của trụ.');
     const amount = Math.round((qty / 1000) * unit);
-    const result = createTransaction('sale', { companyId: vehicle.companyId, vehicleId: vehicle.id, plate: vehicle.plate, pumpId: selectedPump.id, fuelId: selectedPump.fuelId, liters: qty, price: unit, amount, stockDelta: -qty, partyKind: 'company', partyId: vehicle.companyId, debtDelta: amount, note: values.note || `Xe ${vehicle.plate}` });
+    data.lastSalePumpId = selectedPump.id;
+    const result = createTransaction('sale', { date, companyId: vehicle.companyId, vehicleId: vehicle.id, plate: vehicle.plate, pumpId: selectedPump.id, fuelId: selectedPump.fuelId, liters: qty, price: unit, amount, stockDelta: 0, pumpStockDelta: -qty, partyKind: 'company', partyId: vehicle.companyId, debtDelta: amount, note: values.note || `Xe ${vehicle.plate}` });
     notify(`Đã lưu lượt đổ ${liters(qty)} · ${money(amount)}.`);
-    view = 'reports';
+    view = 'sale';
     render();
+    requestAnimationFrame(() => $('#plate')?.focus());
     return result;
+  }
+
+  function submitPumpFill(values) {
+    const selectedPump = pump(values.pumpId);
+    if (!selectedPump?.active) throw new Error('Hãy chọn trụ đang hoạt động.');
+    const qty = parseLiters(values.liters);
+    const commonStock = stock(selectedPump.fuelId);
+    if (commonStock < qty) throw new Error(`Kho chung chỉ còn ${liters(commonStock)} ${fuel(selectedPump.fuelId)?.name || ''}.`);
+    data.lastFillPumpId = selectedPump.id;
+    createTransaction('pump-fill', { date: values.date || today(), pumpId: selectedPump.id, fuelId: selectedPump.fuelId, liters: qty, stockDelta: -qty, pumpStockDelta: qty, note: values.note || `Nạp vào trụ ${selectedPump.code}` });
+    notify(`Đã chuyển ${liters(qty)} vào trụ ${selectedPump.code}.`);
+    view = 'pump-fill';
+    render();
+    requestAnimationFrame(() => $('[data-form="pump-fill"] [name="liters"]')?.focus());
   }
 
   function submitClose(values) {
@@ -365,10 +452,10 @@
     const companyLiters = txPumpSales(selectedPump.id, date);
     const retailLiters = closing - opening - companyLiters;
     if (retailLiters < 0) throw new Error('Lượt xe công ty vượt chênh lệch đồng hồ. Kiểm tra lại trụ hoặc chỉ số.');
-    if (stock(selectedPump.fuelId) < retailLiters) throw new Error('Tồn sổ không đủ để ghi phần bán lẻ. Kiểm tra tồn đầu và phiếu nhập.');
+    if (pumpStock(selectedPump.id) < retailLiters) throw new Error(`Tồn trụ ${selectedPump.code} chỉ còn ${liters(pumpStock(selectedPump.id))}, không đủ ghi bán lẻ. Hãy nạp thêm từ kho chung.`);
     const close = { id: id(), pumpId: selectedPump.id, date, opening, closing, companyLiters, retailLiters, active: true, createdAt: new Date().toISOString(), reason: '' };
     data.closes.push(close);
-    createTransaction('retail', { pumpId: selectedPump.id, fuelId: selectedPump.fuelId, liters: retailLiters, stockDelta: -retailLiters, debtDelta: 0, closeId: close.id, note: `Bán lẻ chốt trụ ${selectedPump.code}` });
+    createTransaction('retail', { pumpId: selectedPump.id, fuelId: selectedPump.fuelId, liters: retailLiters, stockDelta: 0, pumpStockDelta: -retailLiters, debtDelta: 0, closeId: close.id, note: `Bán lẻ chốt trụ ${selectedPump.code}` });
     save();
     notify(`Đã chốt trụ ${selectedPump.code}. Bán lẻ tự tính: ${liters(retailLiters)}.`);
     render();
@@ -384,7 +471,7 @@
     close.active = false;
     close.reason = reason.trim();
     const retailTx = data.transactions.find((tx) => tx.kind === 'retail' && tx.closeId === close.id);
-    if (retailTx) createTransaction('reversal', { fuelId: retailTx.fuelId, pumpId: close.pumpId, liters: close.retailLiters, stockDelta: close.retailLiters, debtDelta: 0, note: `Đảo bán lẻ trụ ${pump(close.pumpId)?.code}: ${close.reason}`, originalId: retailTx.id });
+    if (retailTx) createTransaction('reversal', { fuelId: retailTx.fuelId, pumpId: close.pumpId, liters: close.retailLiters, stockDelta: -(retailTx.stockDelta || 0), pumpStockDelta: -(retailTx.pumpStockDelta || 0), debtDelta: 0, note: `Đảo bán lẻ trụ ${pump(close.pumpId)?.code}: ${close.reason}`, originalId: retailTx.id });
     save();
     notify('Đã mở lại chốt gần nhất. Phiếu bán lẻ cũ vẫn được giữ trong lịch sử.');
     render();
@@ -395,20 +482,25 @@
     const type = form.dataset.form;
     if (type === 'sale') return submitSale(values);
     if (type === 'close-pump') return submitClose(values);
+    if (type === 'pump-fill') return submitPumpFill(values);
     if (type === 'purchase') {
       const qty = parseLiters(values.liters);
       const price = parseMoney(values.price, 'Đơn giá');
       const amount = Math.round(qty / 1000 * price);
-      createTransaction('purchase', { supplierId: values.supplierId, fuelId: values.fuelId, liters: qty, price, amount, stockDelta: qty, partyKind: 'supplier', partyId: values.supplierId, debtDelta: amount, note: values.note || 'Nhập nhiên liệu' });
+      data.lastPurchaseSupplierId = values.supplierId;
+      data.lastPurchaseFuelId = values.fuelId;
+      data.lastPurchasePrices ||= {};
+      data.lastPurchasePrices[values.fuelId] = price;
+      createTransaction('purchase', { date: values.date || today(), supplierId: values.supplierId, fuelId: values.fuelId, liters: qty, price, amount, stockDelta: qty, partyKind: 'supplier', partyId: values.supplierId, debtDelta: amount, note: values.note || 'Nhập nhiên liệu' });
       notify(`Đã lưu phiếu nhập ${liters(qty)} · ${money(amount)}.`);
-      view = 'reports'; render(); return;
+      view = 'purchase'; render(); requestAnimationFrame(() => $('[data-form="purchase"] [name="liters"]')?.focus()); return;
     }
     if (type === 'payment') {
       const amount = parseMoney(values.amount);
       const outstanding = debt(values.partyKind, values.partyId);
       if (!values.partyId) throw new Error('Hãy chọn đối tác.');
       if (amount > outstanding) throw new Error('Số tiền vượt công nợ hiện tại.');
-      createTransaction(values.partyKind === 'company' ? 'receipt' : 'payment', { partyKind: values.partyKind, partyId: values.partyId, amount, debtDelta: -amount, note: `${values.method} · ${values.note || ''}`.trim() });
+      createTransaction(values.partyKind === 'company' ? 'receipt' : 'payment', { date: values.date || today(), partyKind: values.partyKind, partyId: values.partyId, amount, debtDelta: -amount, note: `${values.method} · ${values.note || ''}`.trim() });
       notify(`Đã ghi ${values.partyKind === 'company' ? 'khoản thu' : 'khoản trả'} ${money(amount)}.`);
       view = 'reports'; render(); return;
     }
@@ -448,11 +540,11 @@
 
   document.addEventListener('click', (event) => {
     const nav = event.target.closest('[data-view]');
-    if (nav) { view = nav.dataset.view; render(); return; }
+    if (nav) { view = nav.dataset.view; render(); if (view === 'sale') requestAnimationFrame(() => $('#plate')?.focus()); if (view === 'pump-fill') requestAnimationFrame(() => $('[data-form="pump-fill"] [name="liters"]')?.focus()); return; }
     const go = event.target.closest('[data-go]');
-    if (go) { view = go.dataset.go; render(); return; }
+    if (go) { view = go.dataset.go; render(); if (view === 'sale') requestAnimationFrame(() => $('#plate')?.focus()); if (view === 'pump-fill') requestAnimationFrame(() => $('[data-form="pump-fill"] [name="liters"]')?.focus()); return; }
     const usePlate = event.target.closest('[data-use-plate]');
-    if (usePlate) { view = 'sale'; render(); const input = $('#plate'); input.value = usePlate.dataset.usePlate; updateSalePreview(); return; }
+    if (usePlate) { view = 'sale'; render(); const input = $('#plate'); input.value = usePlate.dataset.usePlate; updateSalePreview(); $('#liters')?.focus(); return; }
     const reopen = event.target.closest('[data-reopen]');
     if (reopen) { try { reopenClose(reopen.dataset.reopen); } catch (error) { notify(error.message); } return; }
     if (event.target.id === 'reset-demo') {
@@ -482,10 +574,18 @@
         if ($('#company-hint')) $('#company-hint').textContent = vehicle ? `Xe thuộc ${company(vehicle.companyId)?.name || ''}.` : 'Chọn xe mẫu hoặc nhập biển số đã đăng ký.';
       }
     }
+    if (event.target.matches('[data-form="pump-fill"] [name="liters"]')) updatePumpFillPreview();
   });
   document.addEventListener('change', (event) => {
     if (event.target.id === 'payment-kind') updatePaymentParties();
-    if (event.target.matches('[data-sale-pump],#sale-date')) updateSalePreview();
+    if (event.target.matches('[data-sale-pump]')) { data.lastSalePumpId = event.target.value; save(); updateSalePreview(); }
+    if (event.target.id === 'date') updateSalePreview();
+    if (event.target.matches('[data-fill-pump]')) { data.lastFillPumpId = event.target.value; save(); updatePumpFillPreview(); }
+    if (event.target.matches('[data-purchase-fuel]')) {
+      const priceInput = $('[data-form="purchase"] [name="price"]');
+      if (priceInput) priceInput.value = data.lastPurchasePrices?.[event.target.value] || '';
+      updatePurchasePreview();
+    }
   });
 
   render();
