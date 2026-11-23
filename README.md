@@ -7,6 +7,7 @@ Demo giao diện quản lý cây xăng để gửi khách trải nghiệm trên 
 - Ứng dụng tự nạp dữ liệu mẫu ở lần mở đầu.
 - Các giao dịch người dùng nhập được lưu trong `localStorage` của trình duyệt hiện tại.
 - Mỗi thiết bị/trình duyệt có dữ liệu riêng; demo không đồng bộ giữa điện thoại và máy tính.
+- Trên điện thoại, thanh menu nằm dưới cùng; các mục ít dùng nằm trong **Thêm**.
 - Bộ chọn **Chế độ thử** cho xem giao diện Quản lý/Nhân viên. Ở chế độ Nhân viên, chỉ còn màn hình bán xe; giá trên phiếu bán là chỉ đọc. Đây là mô phỏng giao diện, không phải đăng nhập hay cơ chế bảo vệ dữ liệu.
 - Nút **Đặt lại dữ liệu mẫu** xóa các giao dịch demo trong trình duyệt đó và nạp lại bộ dữ liệu ban đầu.
 - Không nhập dữ liệu thật, thông tin khách hàng thật hoặc thông tin đăng nhập. Đây là bản demo tĩnh, không có tài khoản, máy chủ hay cơ chế sao lưu.

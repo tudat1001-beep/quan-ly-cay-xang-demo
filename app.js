@@ -113,6 +113,12 @@
       throw new Error('Không thể lưu dữ liệu trong trình duyệt này.');
     }
   }
+  function closeMobileMore() {
+    const panel = $('#mobile-more-panel');
+    const button = $('#mobile-more');
+    if (panel) panel.hidden = true;
+    if (button) button.setAttribute('aria-expanded', 'false');
+  }
   function notify(message) {
     const toast = $('#toast');
     toast.textContent = message;
@@ -332,12 +338,15 @@
     const root = $('#app');
     const views = { home: renderHome, sale: renderSale, 'pump-fill': renderPumpFill, closing: renderClosing, purchase: renderPurchase, payments: renderPayments, reports: renderReports, catalog: renderCatalog };
     if (!canOpenView(view)) view = 'home';
+    closeMobileMore();
     root.innerHTML = (views[view] || renderHome)();
     $('#demo-role').value = data.demoRole;
     $('#demo-role-name').textContent = isSeller() ? 'Nhân viên demo' : 'Quản lý demo';
     $('.avatar').textContent = isSeller() ? 'NV' : 'QL';
     $$('[data-manager-only]').forEach((item) => { item.hidden = isSeller(); });
     $$('.nav-item').forEach((item) => item.classList.toggle('active', item.dataset.view === view));
+    $('#mobile-more')?.classList.toggle('active', ['payments', 'reports', 'catalog'].includes(view));
+    $$('#mobile-more-panel [data-view]').forEach((item) => item.classList.toggle('active', item.dataset.view === view));
     $('#today-label').textContent = new Intl.DateTimeFormat('vi-VN', { dateStyle: 'medium', timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date());
     updatePaymentParties();
     updateSalePreview();
@@ -556,6 +565,14 @@
   }
 
   document.addEventListener('click', (event) => {
+    const morePanel = $('#mobile-more-panel');
+    if (event.target.closest('#mobile-more')) {
+      morePanel.hidden = !morePanel.hidden;
+      $('#mobile-more').setAttribute('aria-expanded', String(!morePanel.hidden));
+      return;
+    }
+    if (event.target.closest('#mobile-more-close')) { closeMobileMore(); return; }
+    if (!event.target.closest('#mobile-more-panel') && morePanel && !morePanel.hidden) closeMobileMore();
     const nav = event.target.closest('[data-view]');
     if (nav) { if (!canOpenView(nav.dataset.view)) { notify('Màn hình quản lý chỉ dùng trong chế độ quản lý demo.'); return; } view = nav.dataset.view; render(); if (view === 'sale') requestAnimationFrame(() => $('#plate')?.focus()); if (view === 'pump-fill') requestAnimationFrame(() => $('[data-form="pump-fill"] [name="liters"]')?.focus()); return; }
     const go = event.target.closest('[data-go]');
@@ -610,6 +627,8 @@
       updatePurchasePreview();
     }
   });
+
+  document.addEventListener('keydown', (event) => { if (event.key === 'Escape') closeMobileMore(); });
 
   render();
 })();
