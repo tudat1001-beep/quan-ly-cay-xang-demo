@@ -98,8 +98,12 @@
   }
 
   let data = loadData();
+  data.demoRole = data.demoRole === 'seller' ? 'seller' : 'owner';
   let view = 'home';
   let toastTimer;
+
+  function isSeller() { return data.demoRole === 'seller'; }
+  function canOpenView(target) { return !isSeller() || ['home', 'sale'].includes(target); }
 
   function save() {
     try {
@@ -198,20 +202,27 @@
     const pumpsTotal = fuelItems.reduce((sum, item) => sum + data.pumps.filter((pumpItem) => pumpItem.fuelId === item.id).reduce((pumpSum, pumpItem) => pumpSum + pumpStock(pumpItem.id), 0), 0);
     const inventoryRows = fuelItems.map((item) => {
       const inPumps = data.pumps.filter((pumpItem) => pumpItem.fuelId === item.id).reduce((sum, pumpItem) => sum + pumpStock(pumpItem.id), 0);
-      return `<tr><td><strong>${escapeHtml(item.name)}</strong></td><td>${liters(stock(item.id))}</td><td>${liters(inPumps)}</td><td><strong>${liters(totalStock(item.id))}</strong></td><td>${money(currentPrice(item.id))} / L</td></tr>`;
+      return isSeller()
+        ? `<tr><td><strong>${escapeHtml(item.name)}</strong></td><td>${liters(totalStock(item.id))}</td><td>${money(currentPrice(item.id))} / L</td></tr>`
+        : `<tr><td><strong>${escapeHtml(item.name)}</strong></td><td>${liters(stock(item.id))}</td><td>${liters(inPumps)}</td><td><strong>${liters(totalStock(item.id))}</strong></td><td>${money(currentPrice(item.id))} / L</td></tr>`;
     }).join('');
-    return `${top('Tổng quan', 'Theo dõi hoạt động cửa hàng trong ngày.', '<button class="button secondary" data-go="pump-fill">＋ Nạp vào trụ</button><button class="button primary" data-go="sale">＋ Ghi lượt xe</button>')}
-      <div class="local-banner"><strong>Dữ liệu riêng của bạn.</strong> Demo này lưu trong bộ nhớ trình duyệt hiện tại. Khách thử trên thiết bị khác sẽ có bộ dữ liệu riêng.</div>
-      <section class="metrics">
-        <article class="metric"><div class="metric-top">Tồn nhiên liệu <span class="metric-icon">◈</span></div><strong>${liters(commonTotal + pumpsTotal)}</strong><small>Kho chung ${liters(commonTotal)} · Trong trụ ${liters(pumpsTotal)}</small></article>
+    const metricCards = isSeller()
+      ? `<article class="metric"><div class="metric-top">Bán xe hôm nay <span class="metric-icon">▤</span></div><strong>${money(todaySales)}</strong><small>Giá bán được lấy tự động theo nhiên liệu</small></article>`
+      : `<article class="metric"><div class="metric-top">Tồn nhiên liệu <span class="metric-icon">◈</span></div><strong>${liters(commonTotal + pumpsTotal)}</strong><small>Kho chung ${liters(commonTotal)} · Trong trụ ${liters(pumpsTotal)}</small></article>
         <article class="metric"><div class="metric-top">Khách hàng còn nợ <span class="metric-icon">↗</span></div><strong>${money(receivable)}</strong><small>${data.companies.filter((item) => debt('company', item.id) > 0).length} công ty có số dư</small></article>
         <article class="metric"><div class="metric-top">Phải trả nhà cung cấp <span class="metric-icon">↙</span></div><strong>${money(payable)}</strong><small>${data.suppliers.length} nhà cung cấp mẫu</small></article>
-        <article class="metric"><div class="metric-top">Bán xe hôm nay <span class="metric-icon">▤</span></div><strong>${money(todaySales)}</strong><small>Chưa gồm bán lẻ chờ chốt trụ</small></article>
-      </section>
-      <div class="grid-two"><section class="card">${section('Chốt trụ cuối ngày', 'Nhập chỉ số đồng hồ cuối. Bán lẻ được tính tự động.', '<button class="text-link" data-go="closing">Mở trang chốt →</button>')}<div class="pump-list">${pumpCards(true)}</div></section>
-      <section class="card">${section('Tồn theo nhiên liệu', 'Kho chung và phần nhiên liệu đang ở từng trụ.')}
-        <div class="table-wrap"><table><thead><tr><th>Nhiên liệu</th><th>Kho chung</th><th>Trong trụ</th><th>Tổng tồn</th><th>Giá hiện tại</th></tr></thead><tbody>${inventoryRows || '<tr><td class="empty" colspan="5">Chưa có nhiên liệu.</td></tr>'}</tbody></table></div></section></div>
-      <section class="card">${section('Giao dịch gần đây', 'Phiếu và thao tác mới nhất.', '<button class="text-link" data-go="reports">Mở sổ →</button>')}<div class="table-wrap"><table><thead><tr><th>Loại</th><th>Nội dung</th><th>Ngày</th><th>Số lượng</th><th>Thành tiền</th></tr></thead><tbody>${recentTransactions()}</tbody></table></div></section>`;
+        <article class="metric"><div class="metric-top">Bán xe hôm nay <span class="metric-icon">▤</span></div><strong>${money(todaySales)}</strong><small>Chưa gồm bán lẻ chờ chốt trụ</small></article>`;
+    const managerActions = '<button class="button secondary" data-go="pump-fill">＋ Nạp vào trụ</button>';
+    const pumpPanel = isSeller() ? '' : `<section class="card">${section('Chốt trụ cuối ngày', 'Nhập chỉ số đồng hồ cuối. Bán lẻ được tính tự động.', '<button class="text-link" data-go="closing">Mở trang chốt →</button>')}<div class="pump-list">${pumpCards(true)}</div></section>`;
+    const recentPanel = isSeller() ? '' : `<section class="card">${section('Giao dịch gần đây', 'Phiếu và thao tác mới nhất.', '<button class="text-link" data-go="reports">Mở sổ →</button>')}<div class="table-wrap"><table><thead><tr><th>Loại</th><th>Nội dung</th><th>Ngày</th><th>Số lượng</th><th>Thành tiền</th></tr></thead><tbody>${recentTransactions()}</tbody></table></div></section>`;
+    const roleNote = isSeller() ? '<div class="local-banner"><strong>Chế độ nhân viên mô phỏng.</strong> Có thể ghi lượt xe công ty; nhập hàng, nạp trụ, giá bán và sổ quản lý chỉ dành cho quản lý trong demo.</div>' : '';
+    const stockHeaders = isSeller() ? '<tr><th>Nhiên liệu</th><th>Tồn hiện tại</th><th>Giá bán</th></tr>' : '<tr><th>Nhiên liệu</th><th>Kho chung</th><th>Trong trụ</th><th>Tổng tồn</th><th>Giá hiện tại</th></tr>';
+    return `${top('Tổng quan', 'Theo dõi hoạt động cửa hàng trong ngày.', `${isSeller() ? '' : managerActions}<button class="button primary" data-go="sale">＋ Ghi lượt xe</button>`)}
+      <div class="local-banner"><strong>Dữ liệu riêng của bạn.</strong> Demo này lưu trong bộ nhớ trình duyệt hiện tại. Khách thử trên thiết bị khác sẽ có bộ dữ liệu riêng.</div>
+      ${roleNote}<section class="metrics">${metricCards}</section>
+      ${pumpPanel}<section class="card">${section('Tồn theo nhiên liệu', isSeller() ? 'Giá bán đang áp dụng chỉ hiển thị, không chỉnh được tại màn hình nhân viên.' : 'Kho chung và phần nhiên liệu đang ở từng trụ.')}
+        <div class="table-wrap"><table><thead>${stockHeaders}</thead><tbody>${inventoryRows || `<tr><td class="empty" colspan="${isSeller() ? 3 : 5}">Chưa có nhiên liệu.</td></tr>`}</tbody></table></div></section>
+      ${recentPanel}`;
   }
   function renderSale() {
     const pumps = data.pumps.filter((item) => item.active !== false);
@@ -320,7 +331,12 @@
   function render() {
     const root = $('#app');
     const views = { home: renderHome, sale: renderSale, 'pump-fill': renderPumpFill, closing: renderClosing, purchase: renderPurchase, payments: renderPayments, reports: renderReports, catalog: renderCatalog };
+    if (!canOpenView(view)) view = 'home';
     root.innerHTML = (views[view] || renderHome)();
+    $('#demo-role').value = data.demoRole;
+    $('#demo-role-name').textContent = isSeller() ? 'Nhân viên demo' : 'Quản lý demo';
+    $('.avatar').textContent = isSeller() ? 'NV' : 'QL';
+    $$('[data-manager-only]').forEach((item) => { item.hidden = isSeller(); });
     $$('.nav-item').forEach((item) => item.classList.toggle('active', item.dataset.view === view));
     $('#today-label').textContent = new Intl.DateTimeFormat('vi-VN', { dateStyle: 'medium', timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date());
     updatePaymentParties();
@@ -480,6 +496,7 @@
   function handleSubmit(form) {
     const values = formValues(form);
     const type = form.dataset.form;
+    if (isSeller() && type !== 'sale') throw new Error('Chế độ nhân viên chỉ được ghi lượt xe công ty.');
     if (type === 'sale') return submitSale(values);
     if (type === 'close-pump') return submitClose(values);
     if (type === 'pump-fill') return submitPumpFill(values);
@@ -540,9 +557,9 @@
 
   document.addEventListener('click', (event) => {
     const nav = event.target.closest('[data-view]');
-    if (nav) { view = nav.dataset.view; render(); if (view === 'sale') requestAnimationFrame(() => $('#plate')?.focus()); if (view === 'pump-fill') requestAnimationFrame(() => $('[data-form="pump-fill"] [name="liters"]')?.focus()); return; }
+    if (nav) { if (!canOpenView(nav.dataset.view)) { notify('Màn hình quản lý chỉ dùng trong chế độ quản lý demo.'); return; } view = nav.dataset.view; render(); if (view === 'sale') requestAnimationFrame(() => $('#plate')?.focus()); if (view === 'pump-fill') requestAnimationFrame(() => $('[data-form="pump-fill"] [name="liters"]')?.focus()); return; }
     const go = event.target.closest('[data-go]');
-    if (go) { view = go.dataset.go; render(); if (view === 'sale') requestAnimationFrame(() => $('#plate')?.focus()); if (view === 'pump-fill') requestAnimationFrame(() => $('[data-form="pump-fill"] [name="liters"]')?.focus()); return; }
+    if (go) { if (!canOpenView(go.dataset.go)) { notify('Màn hình quản lý chỉ dùng trong chế độ quản lý demo.'); return; } view = go.dataset.go; render(); if (view === 'sale') requestAnimationFrame(() => $('#plate')?.focus()); if (view === 'pump-fill') requestAnimationFrame(() => $('[data-form="pump-fill"] [name="liters"]')?.focus()); return; }
     const usePlate = event.target.closest('[data-use-plate]');
     if (usePlate) { view = 'sale'; render(); const input = $('#plate'); input.value = usePlate.dataset.usePlate; updateSalePreview(); $('#liters')?.focus(); return; }
     const reopen = event.target.closest('[data-reopen]');
@@ -577,6 +594,12 @@
     if (event.target.matches('[data-form="pump-fill"] [name="liters"]')) updatePumpFillPreview();
   });
   document.addEventListener('change', (event) => {
+    if (event.target.id === 'demo-role') {
+      data.demoRole = event.target.value === 'seller' ? 'seller' : 'owner';
+      save(); view = 'home'; render();
+      notify(isSeller() ? 'Đã chuyển sang màn hình nhân viên demo.' : 'Đã chuyển sang màn hình quản lý demo.');
+      return;
+    }
     if (event.target.id === 'payment-kind') updatePaymentParties();
     if (event.target.matches('[data-sale-pump]')) { data.lastSalePumpId = event.target.value; save(); updateSalePreview(); }
     if (event.target.id === 'date') updateSalePreview();

@@ -15,7 +15,7 @@
     <a class="brand" href="#home" aria-label="Trang tổng quan">
       <span class="brand-mark">⛽</span><span><strong>Trạm Xanh</strong><small>Quản lý vận hành</small></span>
     </a>
-    <div class="topbar-right"><span class="today-label" id="today-label"></span><span class="avatar">DA</span><span class="user-name">Demo Admin</span></div>
+    <div class="topbar-right"><span class="today-label" id="today-label"></span><label class="demo-role-label" for="demo-role">Chế độ thử</label><select class="demo-role-select" id="demo-role" aria-label="Vai trò mô phỏng"><option value="owner">Quản lý</option><option value="seller">Nhân viên</option></select><span class="avatar">DA</span><span class="user-name" id="demo-role-name">Quản lý demo</span></div>
   </header>
   <div class="layout">
     <aside class="sidebar">
@@ -23,14 +23,14 @@
       <button class="nav-item active" data-view="home"><span>⌂</span> Tổng quan</button>
       <p class="nav-caption">GIAO DỊCH</p>
       <button class="nav-item" data-view="sale"><span>↗</span> Bán cho xe công ty</button>
-      <button class="nav-item" data-view="pump-fill"><span>↓</span> Nạp vào trụ</button>
-      <button class="nav-item" data-view="closing"><span>◷</span> Chốt trụ cuối ngày</button>
-      <button class="nav-item" data-view="purchase"><span>↙</span> Nhập nhiên liệu</button>
-      <button class="nav-item" data-view="payments"><span>⇄</span> Thu / chi</button>
-      <p class="nav-caption">THEO DÕI</p>
-      <button class="nav-item" data-view="reports"><span>▤</span> Sổ kho & công nợ</button>
-      <button class="nav-item" data-view="catalog"><span>☷</span> Danh mục</button>
-      <div class="sidebar-note"><span class="lock-icon">▣</span><strong>Thử an toàn</strong><p>Không có tài khoản thật hay máy chủ. Mọi thay đổi chỉ nằm trong trình duyệt của bạn.</p></div>
+      <button class="nav-item" data-view="pump-fill" data-manager-only hidden><span>↓</span> Nạp vào trụ</button>
+      <button class="nav-item" data-view="closing" data-manager-only hidden><span>◷</span> Chốt trụ cuối ngày</button>
+      <button class="nav-item" data-view="purchase" data-manager-only hidden><span>↙</span> Nhập nhiên liệu</button>
+      <button class="nav-item" data-view="payments" data-manager-only hidden><span>⇄</span> Thu / chi</button>
+      <p class="nav-caption" data-manager-only hidden>THEO DÕI</p>
+      <button class="nav-item" data-view="reports" data-manager-only hidden><span>▤</span> Sổ kho & công nợ</button>
+      <button class="nav-item" data-view="catalog" data-manager-only hidden><span>☷</span> Danh mục</button>
+      <div class="sidebar-note"><span class="lock-icon">▣</span><strong>Thử an toàn</strong><p>Không có tài khoản thật hay máy chủ. Vai trò nhân viên chỉ mô phỏng giao diện; dữ liệu nằm trong trình duyệt này.</p></div>
       <footer>Trạm Xanh <span>·</span> Demo 2026</footer>
     </aside>
     <main id="app" class="main-content" aria-live="polite"></main>
