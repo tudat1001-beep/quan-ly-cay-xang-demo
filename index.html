@@ -15,7 +15,7 @@
     <a class="brand" href="#home" aria-label="Trang tổng quan">
       <span class="brand-mark">⛽</span><span><strong>Trạm Xanh</strong><small>Quản lý vận hành</small></span>
     </a>
-    <div class="topbar-right"><span class="today-label" id="today-label"></span><label class="demo-role-label" for="demo-role">Chế độ thử</label><select class="demo-role-select" id="demo-role" aria-label="Vai trò mô phỏng"><option value="owner">Quản lý</option><option value="seller">Nhân viên</option></select><span class="avatar">DA</span><span class="user-name" id="demo-role-name">Quản lý demo</span></div>
+    <div class="topbar-right"><span class="today-label" id="today-label"></span><span class="avatar" aria-hidden="true">QL</span><span class="user-name">Quản lý</span></div>
   </header>
   <div class="layout">
     <aside class="sidebar">
@@ -23,15 +23,15 @@
       <button class="nav-item active" data-view="home" aria-label="Tổng quan" title="Tổng quan"><span aria-hidden="true">⌂</span><small class="nav-label">Tổng quan</small></button>
       <p class="nav-caption">GIAO DỊCH</p>
       <button class="nav-item" data-view="sale" aria-label="Bán cho xe công ty" title="Bán cho xe công ty"><span aria-hidden="true">↗</span><small class="nav-label">Bán cho xe</small></button>
-      <button class="nav-item" data-view="pump-fill" data-manager-only hidden aria-label="Nạp vào trụ" title="Nạp vào trụ"><span aria-hidden="true">↓</span><small class="nav-label">Nạp trụ</small></button>
-      <button class="nav-item" data-view="closing" data-manager-only hidden aria-label="Chốt trụ cuối ngày" title="Chốt trụ cuối ngày"><span aria-hidden="true">◷</span><small class="nav-label">Chốt trụ</small></button>
-      <button class="nav-item" data-view="purchase" data-manager-only hidden aria-label="Nhập nhiên liệu" title="Nhập nhiên liệu"><span aria-hidden="true">↙</span><small class="nav-label">Nhập hàng</small></button>
-      <button class="nav-item" data-view="payments" data-mobile-secondary data-manager-only hidden aria-label="Thu và chi" title="Thu và chi"><span aria-hidden="true">⇄</span><small class="nav-label">Thu / chi</small></button>
-      <p class="nav-caption" data-manager-only hidden>THEO DÕI</p>
-      <button class="nav-item" data-view="reports" data-mobile-secondary data-manager-only hidden aria-label="Sổ kho và công nợ" title="Sổ kho và công nợ"><span aria-hidden="true">▤</span><small class="nav-label">Sổ kho</small></button>
-      <button class="nav-item" data-view="catalog" data-mobile-secondary data-manager-only hidden aria-label="Danh mục và giá bán" title="Danh mục và giá bán"><span aria-hidden="true">☷</span><small class="nav-label">Danh mục</small></button>
-      <button class="nav-item mobile-more-button" id="mobile-more" data-manager-only hidden aria-label="Thêm chức năng" title="Thêm chức năng" aria-expanded="false" aria-controls="mobile-more-panel"><span aria-hidden="true">⋯</span><small class="nav-label">Thêm</small></button>
-      <div class="sidebar-note"><span class="lock-icon">▣</span><strong>Thử an toàn</strong><p>Không có tài khoản thật hay máy chủ. Vai trò nhân viên chỉ mô phỏng giao diện; dữ liệu nằm trong trình duyệt này.</p></div>
+      <button class="nav-item" data-view="pump-fill" aria-label="Nạp vào trụ" title="Nạp vào trụ"><span aria-hidden="true">↓</span><small class="nav-label">Nạp trụ</small></button>
+      <button class="nav-item" data-view="closing" aria-label="Chốt trụ cuối ngày" title="Chốt trụ cuối ngày"><span aria-hidden="true">◷</span><small class="nav-label">Chốt trụ</small></button>
+      <button class="nav-item" data-view="purchase" aria-label="Nhập nhiên liệu" title="Nhập nhiên liệu"><span aria-hidden="true">↙</span><small class="nav-label">Nhập hàng</small></button>
+      <button class="nav-item" data-view="payments" data-mobile-secondary aria-label="Thu và chi" title="Thu và chi"><span aria-hidden="true">⇄</span><small class="nav-label">Thu / chi</small></button>
+      <p class="nav-caption">THEO DÕI</p>
+      <button class="nav-item" data-view="reports" data-mobile-secondary aria-label="Sổ kho và công nợ" title="Sổ kho và công nợ"><span aria-hidden="true">▤</span><small class="nav-label">Sổ kho</small></button>
+      <button class="nav-item" data-view="catalog" data-mobile-secondary aria-label="Danh mục và giá bán" title="Danh mục và giá bán"><span aria-hidden="true">☷</span><small class="nav-label">Danh mục</small></button>
+      <button class="nav-item mobile-more-button" id="mobile-more" aria-label="Thêm chức năng" title="Thêm chức năng" aria-expanded="false" aria-controls="mobile-more-panel"><span aria-hidden="true">⋯</span><small class="nav-label">Thêm</small></button>
+      <div class="sidebar-note"><span class="lock-icon">▣</span><strong>Một người dùng quản lý</strong><p>Bản thử không có đăng nhập thật. Dữ liệu chỉ lưu trong trình duyệt trên thiết bị này.</p></div>
       <footer>Trạm Xanh <span>·</span> Demo 2026</footer>
     </aside>
     <main id="app" class="main-content" aria-live="polite"></main>
@@ -39,11 +39,12 @@
   <section class="mobile-more-panel" id="mobile-more-panel" role="dialog" aria-modal="false" aria-labelledby="mobile-more-title" hidden>
     <div class="mobile-more-heading"><h2 id="mobile-more-title">Chức năng khác</h2><button id="mobile-more-close" type="button" aria-label="Đóng">×</button></div>
     <div class="mobile-more-grid">
-      <button type="button" data-view="payments" data-manager-only hidden aria-label="Thu và chi"><span aria-hidden="true">⇄</span><small>Thu / chi</small></button>
-      <button type="button" data-view="reports" data-manager-only hidden aria-label="Sổ kho và công nợ"><span aria-hidden="true">▤</span><small>Sổ kho</small></button>
-      <button type="button" data-view="catalog" data-manager-only hidden aria-label="Danh mục và giá bán"><span aria-hidden="true">☷</span><small>Danh mục</small></button>
+      <button type="button" data-view="payments" aria-label="Thu và chi"><span aria-hidden="true">⇄</span><small>Thu / chi</small></button>
+      <button type="button" data-view="reports" aria-label="Sổ kho và công nợ"><span aria-hidden="true">▤</span><small>Sổ kho</small></button>
+      <button type="button" data-view="catalog" aria-label="Danh mục và giá bán"><span aria-hidden="true">☷</span><small>Danh mục</small></button>
     </div>
   </section>
   <div id="toast" class="toast" role="status"></div>
 </body>
 </html>
+
